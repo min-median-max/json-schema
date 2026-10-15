@@ -77,18 +77,34 @@ class ObjectSchema extends AbstractSchema
      */
     public function doValidate(ValidationContext $context): ?ValidationError
     {
+        // In the collect-all-errors mode a failing keyword group does not
+        // stop the later groups, so keywords such as unevaluatedProperties
+        // still report what they refuse.
+        $stop = $context->stopAtFirstError();
+        /** @var ValidationError[] $error_list */
+        $error_list = [];
+
         if ($this->before && ($error = $this->applyKeywords($this->before, $context))) {
-            return $error;
+            if ($stop) {
+                return $error;
+            }
+            $error_list[] = $error;
         }
 
         if ($this->types && ($type = $context->currentDataType())) {
             if (isset($this->types[$type]) && ($error = $this->applyKeywords($this->types[$type], $context))) {
-                return $error;
+                if ($stop) {
+                    return $error;
+                }
+                $error_list[] = $error;
             }
 
             if (($type = Helper::getJsonSuperType($type)) && isset($this->types[$type])) {
                 if ($error = $this->applyKeywords($this->types[$type], $context)) {
-                    return $error;
+                    if ($stop) {
+                        return $error;
+                    }
+                    $error_list[] = $error;
                 }
             }
 
@@ -96,10 +112,47 @@ class ObjectSchema extends AbstractSchema
         }
 
         if ($this->after && ($error = $this->applyKeywords($this->after, $context))) {
-            return $error;
+            if ($stop) {
+                return $error;
+            }
+            $error_list[] = $error;
         }
 
-        return null;
+        return $this->combineErrors($error_list, $context);
+    }
+
+    /**
+     * @param ValidationError[] $error_list
+     * @param ValidationContext $context
+     * @return ValidationError|null
+     */
+    protected function combineErrors(array $error_list, ValidationContext $context): ?ValidationError
+    {
+        if (!$error_list) {
+            return null;
+        }
+
+        if (count($error_list) === 1) {
+            return $error_list[0];
+        }
+
+        $flat = [];
+        foreach ($error_list as $error) {
+            if ($error->keyword() === '' && $error->schema() === $this) {
+                array_push($flat, ...$error->subErrors());
+            } else {
+                $flat[] = $error;
+            }
+        }
+
+        return new ValidationError(
+            '',
+            $this,
+            DataInfo::fromContext($context),
+            'Data must match schema',
+            [],
+            $flat
+        );
     }
 
     /**
@@ -128,21 +181,6 @@ class ObjectSchema extends AbstractSchema
             }
         }
 
-        if (!$error_list) {
-            return null;
-        }
-
-        if (count($error_list) === 1) {
-            return $error_list[0];
-        }
-
-        return new ValidationError(
-            '',
-            $this,
-            DataInfo::fromContext($context),
-            'Data must match schema',
-            [],
-            $error_list
-        );
+        return $this->combineErrors($error_list ?? [], $context);
     }
 }

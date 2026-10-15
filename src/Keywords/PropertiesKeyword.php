@@ -69,6 +69,7 @@ class PropertiesKeyword implements Keyword
             }
 
             if ($prop === false) {
+                $context->addCheckedProperties($checked);
                 $context->addEvaluatedProperties($evaluated);
                 return $this->error($schema, $context, 'properties', "Property '{property}' is not allowed", [
                     'property' => $name,
@@ -93,6 +94,10 @@ class PropertiesKeyword implements Keyword
             }
         }
 
+        // A property that fails its subschema is still checked
+        // by this keyword, so additionalProperties (and unevaluatedProperties
+        // of the same schema) must not report it again.
+        $context->addCheckedProperties($checked);
         $context->addEvaluatedProperties($evaluated);
 
         if (!$errors->isEmpty()) {
@@ -101,8 +106,6 @@ class PropertiesKeyword implements Keyword
             ], $errors);
         }
         unset($errors);
-
-        $context->addCheckedProperties($checked);
 
         return null;
     }

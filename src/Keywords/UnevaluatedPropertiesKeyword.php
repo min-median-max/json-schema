@@ -49,6 +49,16 @@ class UnevaluatedPropertiesKeyword implements Keyword
             return null;
         }
 
+        // A property that a keyword of this schema checked and refused (such
+        // as a failing properties subschema) is already reported there; the
+        // schema fails through that keyword, so it is not reported again.
+        if ($checked = $context->getCheckedProperties()) {
+            $unevaluated = array_values(array_diff($unevaluated, $checked));
+            if (!$unevaluated) {
+                return null;
+            }
+        }
+
         if ($this->value === false) {
             return $this->error($schema, $context, 'unevaluatedProperties',
                 'Unevaluated object properties not allowed: {properties}', [

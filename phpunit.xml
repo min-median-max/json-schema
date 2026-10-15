@@ -20,6 +20,7 @@
         </testsuite>
         <testsuite name="Errors">
             <file>./tests/ErrorFormatterTest.php</file>
+            <file>./tests/CollectAllErrorsTest.php</file>
         </testsuite>
         <testsuite name="Official">
             <file>./tests/OfficialDraft6Test.php</file>
